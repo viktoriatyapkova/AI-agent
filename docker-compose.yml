@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: book_recommender_app
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_STARTUP_TIMEOUT=30
+    stdin_open: true
+    tty: true
+    command: >
+      sh -c "while ! python -c 'import socket; socket.create_connection((\"$DB_HOST\", $DB_PORT), timeout=1)' 2>/dev/null; do
+      sleep 2;
+      done &&
+      python -u main.py"
+
+  db:
+    image: postgres:13
+    container_name: book_recommender_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: example
+      POSTGRES_DB: book_recommender
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init_db.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5433:5678"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d book_recommender"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+volumes:
+  postgres_data:
+
+  
